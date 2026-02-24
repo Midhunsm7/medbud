@@ -70,8 +70,7 @@ export default function Navbar() {
   ];
 
   const userMenuItems = [
-    { href: '/profile', label: 'Profile', icon: <User className="w-4 h-4" /> },
-    { href: '/settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
+    { href: '/', label: 'Main page', icon: <User className="w-4 h-4" /> },
   ];
 
   if (!user) {
