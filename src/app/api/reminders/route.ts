@@ -99,6 +99,9 @@ export async function POST(req: Request) {
       frequency: reminder.frequency,
       notes: reminder.notes || null,
       taken: reminder.taken || false,
+      alarm_sound_url: reminder.alarmSoundUrl || null,
+      alarm_sound_name: reminder.alarmSoundName || null,
+      use_custom_sound: reminder.useCustomSound || false,
     }
 
     const { data, error } = await supabase
@@ -166,6 +169,9 @@ export async function PUT(req: Request) {
       frequency: reminder.frequency,
       notes: reminder.notes || null,
       taken: reminder.taken || false,
+      alarm_sound_url: reminder.alarmSoundUrl || null,
+      alarm_sound_name: reminder.alarmSoundName || null,
+      use_custom_sound: reminder.useCustomSound || false,
     }
 
     const { data, error } = await supabase

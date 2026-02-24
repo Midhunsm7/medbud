@@ -4,18 +4,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { 
-  Pill, 
-  Clock, 
-  Calendar, 
-  Plus, 
+import {
+  Pill,
+  Clock,
+  Calendar,
+  Plus,
   AlertCircle,
   CheckCircle,
   X,
   Sparkles,
   Stethoscope,
   MapPin,
-  User
+  User,
+  Music,
+  Upload
 } from 'lucide-react';
 import { useState } from 'react';
 import type { Reminder, ReminderType } from '@/types/reminder';
@@ -53,6 +55,9 @@ export default function ReminderForm({
 }: ReminderFormProps) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [customSoundFile, setCustomSoundFile] = useState<File | null>(null);
+  const [customSoundUrl, setCustomSoundUrl] = useState<string | null>(initialData?.alarmSoundUrl || null);
+  const [useCustomSound, setUseCustomSound] = useState(initialData?.useCustomSound || false);
 
   // Parse initial time if editing
   const getInitialTime = (): { hour: string; minute: string; period: 'AM' | 'PM' } => {
@@ -133,7 +138,10 @@ export default function ReminderForm({
       times: [time24],
       notes: values.notes || '',
       frequency: values.frequency,
-      nextDate: new Date()
+      nextDate: new Date(),
+      alarmSoundUrl: customSoundUrl || undefined,
+      alarmSoundName: customSoundFile?.name || initialData?.alarmSoundName,
+      useCustomSound: useCustomSound
     };
     
     // For appointments, set nextDate based on appointmentDate
@@ -547,8 +555,96 @@ export default function ReminderForm({
           </motion.div>
         </div>
 
+        {/* Custom Alarm Sound Section */}
+        <motion.div
+          className="space-y-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <Music className="w-5 h-5 text-purple-600" />
+            <h3 className="font-semibold text-gray-900">Custom Alarm Sound</h3>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="useCustomSound"
+              checked={useCustomSound}
+              onChange={(e) => setUseCustomSound(e.target.checked)}
+              className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+            />
+            <label htmlFor="useCustomSound" className="text-sm text-gray-700">
+              Use custom alarm sound
+            </label>
+          </div>
+
+          {useCustomSound && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-3"
+            >
+              <div className="flex items-center gap-3">
+                <label
+                  htmlFor="customSound"
+                  className="flex-1 cursor-pointer"
+                >
+                  <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-purple-300 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all">
+                    <Upload className="w-5 h-5 text-purple-600" />
+                    <span className="text-sm font-medium text-gray-700">
+                      {customSoundFile ? customSoundFile.name : customSoundUrl ? 'Change Sound' : 'Select Audio File'}
+                    </span>
+                  </div>
+                  <input
+                    id="customSound"
+                    type="file"
+                    accept="audio/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setCustomSoundFile(file);
+                        // Create object URL for the file
+                        const url = URL.createObjectURL(file);
+                        setCustomSoundUrl(url);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+
+              {customSoundUrl && (
+                <div className="flex items-center gap-2 p-3 bg-white rounded-lg border border-purple-200">
+                  <Music className="w-4 h-4 text-purple-600" />
+                  <span className="text-sm text-gray-600 flex-1">
+                    {customSoundFile?.name || 'Custom sound selected'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomSoundFile(null);
+                      setCustomSoundUrl(null);
+                      setUseCustomSound(false);
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500">
+                💡 Select an audio file from your phone to use as your reminder alarm sound
+              </p>
+            </motion.div>
+          )}
+        </motion.div>
+
         {/* Submit Button */}
-        <motion.div 
+        <motion.div
           className="pt-4 flex gap-3"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

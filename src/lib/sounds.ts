@@ -1,12 +1,64 @@
 // Notification sound utilities
 // These use the Web Audio API to generate simple notification sounds
+// Also supports custom audio files
 
 export class NotificationSound {
   private audioContext: AudioContext | null = null;
+  private customAudio: HTMLAudioElement | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      try {
+        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      } catch (error) {
+        console.error('Failed to create AudioContext:', error);
+      }
+    }
+  }
+
+  // Play custom audio file
+  playCustomSound(audioUrl: string) {
+    try {
+      if (typeof window === 'undefined') return;
+      
+      // Stop any currently playing custom sound
+      if (this.customAudio) {
+        this.customAudio.pause();
+        this.customAudio.currentTime = 0;
+      }
+
+      this.customAudio = new Audio(audioUrl);
+      this.customAudio.volume = 0.7;
+      
+      const playPromise = this.customAudio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('Custom sound playing');
+          })
+          .catch((error) => {
+            console.error('Error playing custom sound:', error);
+            // Fallback to default sound
+            this.playNotification();
+          });
+      }
+    } catch (error) {
+      console.error('Error in playCustomSound:', error);
+      // Fallback to default sound
+      this.playNotification();
+    }
+  }
+
+  // Stop custom sound
+  stopCustomSound() {
+    try {
+      if (this.customAudio) {
+        this.customAudio.pause();
+        this.customAudio.currentTime = 0;
+      }
+    } catch (error) {
+      console.error('Error stopping custom sound:', error);
     }
   }
 
@@ -126,9 +178,54 @@ export const getNotificationSound = (): NotificationSound => {
 };
 
 // Convenience functions
-export const playNotificationSound = () => getNotificationSound().playNotification();
-export const playSuccessSound = () => getNotificationSound().playSuccess();
-export const playErrorSound = () => getNotificationSound().playError();
-export const playChimeSound = () => getNotificationSound().playChime();
+export const playNotificationSound = () => {
+  try {
+    getNotificationSound().playNotification();
+  } catch (error) {
+    console.error('Error playing notification sound:', error);
+  }
+};
+
+export const playSuccessSound = () => {
+  try {
+    getNotificationSound().playSuccess();
+  } catch (error) {
+    console.error('Error playing success sound:', error);
+  }
+};
+
+export const playErrorSound = () => {
+  try {
+    getNotificationSound().playError();
+  } catch (error) {
+    console.error('Error playing error sound:', error);
+  }
+};
+
+export const playChimeSound = () => {
+  try {
+    getNotificationSound().playChime();
+  } catch (error) {
+    console.error('Error playing chime sound:', error);
+  }
+};
+
+export const playCustomAlarmSound = (audioUrl: string) => {
+  try {
+    getNotificationSound().playCustomSound(audioUrl);
+  } catch (error) {
+    console.error('Error playing custom alarm sound:', error);
+    // Fallback to default
+    playNotificationSound();
+  }
+};
+
+export const stopCustomAlarmSound = () => {
+  try {
+    getNotificationSound().stopCustomSound();
+  } catch (error) {
+    console.error('Error stopping custom alarm sound:', error);
+  }
+};
 
 // Made with Bob

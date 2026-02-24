@@ -52,6 +52,9 @@ export function useReminders() {
         frequency: item.frequency as 'daily' | 'weekly' | 'monthly',
         notes: item.notes,
         taken: item.taken,
+        alarmSoundUrl: item.alarm_sound_url,
+        alarmSoundName: item.alarm_sound_name,
+        useCustomSound: item.use_custom_sound,
       }));
 
       setReminders(transformedReminders);

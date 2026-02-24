@@ -16,6 +16,10 @@ export type Reminder = {
   frequency:  "daily" | "weekly" | "monthly";  // for medication only
   notes?: string;
   taken?: boolean;
+  // Custom alarm sound fields
+  alarmSoundUrl?: string;  // URL or data URI of custom alarm sound
+  alarmSoundName?: string;  // Name of the custom alarm sound file
+  useCustomSound?: boolean;  // Whether to use custom sound instead of default
 };
 
 // Helper function to convert 24h to 12h format

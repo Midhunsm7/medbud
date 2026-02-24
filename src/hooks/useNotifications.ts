@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Reminder } from '@/types/reminder';
-import { playNotificationSound } from '@/lib/sounds';
+import { playNotificationSound, playCustomAlarmSound } from '@/lib/sounds';
 import { toast } from 'react-hot-toast';
 
 export function useNotifications(reminders: Reminder[]) {
@@ -92,63 +92,105 @@ export function useNotifications(reminders: Reminder[]) {
   };
 
   const triggerNotification = (reminder: Reminder, isAdvanceReminder: boolean = false) => {
-    // Play sound
-    playNotificationSound();
-
-    // Show browser notification
-    if (notificationPermission === 'granted') {
-      const title = reminder.type === 'appointment'
-        ? isAdvanceReminder
-          ? `Upcoming Appointment: ${reminder.name}`
-          : `Appointment: ${reminder.name}`
-        : `Medication: ${reminder.name}`;
-      
-      let body = '';
-      if (reminder.type === 'appointment') {
-        const timeInfo = isAdvanceReminder && reminder.reminderAdvance
-          ? `in ${reminder.reminderAdvance} hour${reminder.reminderAdvance !== 1 ? 's' : ''}`
-          : 'now';
-        body = `${reminder.doctorName ? `Dr. ${reminder.doctorName}` : 'Appointment'} ${timeInfo}${reminder.location ? ` at ${reminder.location}` : ''}`;
-      } else {
-        body = `Time to take ${reminder.dosage || 'your medication'}`;
+    try {
+      // Play sound with error handling - use custom sound if available
+      try {
+        if (reminder.useCustomSound && reminder.alarmSoundUrl) {
+          playCustomAlarmSound(reminder.alarmSoundUrl);
+        } else {
+          playNotificationSound();
+        }
+      } catch (soundError) {
+        console.error('Error playing sound:', soundError);
+        // Fallback to default sound
+        try {
+          playNotificationSound();
+        } catch (fallbackError) {
+          console.error('Fallback sound also failed:', fallbackError);
+        }
       }
 
-      const notification = new Notification(title, {
-        body,
-        icon: '/icon-192x192.png',
-        badge: '/icon-192x192.png',
-        tag: reminder.id,
-        requireInteraction: true,
-      });
+      // Show browser notification with error handling
+      if (notificationPermission === 'granted' && typeof window !== 'undefined' && 'Notification' in window) {
+        try {
+          const title = reminder.type === 'appointment'
+            ? isAdvanceReminder
+              ? `Upcoming Appointment: ${reminder.name}`
+              : `Appointment: ${reminder.name}`
+            : `Medication: ${reminder.name}`;
+          
+          let body = '';
+          if (reminder.type === 'appointment') {
+            const timeInfo = isAdvanceReminder && reminder.reminderAdvance
+              ? `in ${reminder.reminderAdvance} hour${reminder.reminderAdvance !== 1 ? 's' : ''}`
+              : 'now';
+            body = `${reminder.doctorName ? `Dr. ${reminder.doctorName}` : 'Appointment'} ${timeInfo}${reminder.location ? ` at ${reminder.location}` : ''}`;
+          } else {
+            body = `Time to take ${reminder.dosage || 'your medication'}`;
+          }
 
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-      };
+          const notification = new Notification(title, {
+            body,
+            icon: '/logo.png',
+            badge: '/logo.png',
+            tag: reminder.id,
+            requireInteraction: true,
+            silent: false,
+          });
+
+          notification.onclick = () => {
+            try {
+              window.focus();
+              notification.close();
+            } catch (e) {
+              console.error('Error handling notification click:', e);
+            }
+          };
+        } catch (notifError) {
+          console.error('Error showing notification:', notifError);
+        }
+      }
+
+      // Show toast notification with error handling
+      try {
+        let toastMessage = '';
+        if (reminder.type === 'appointment') {
+          const timeInfo = isAdvanceReminder && reminder.reminderAdvance
+            ? ` in ${reminder.reminderAdvance}h`
+            : '';
+          toastMessage = `${reminder.name}${timeInfo} - ${reminder.doctorName ? `Dr. ${reminder.doctorName}` : 'Appointment'}`;
+        } else {
+          toastMessage = `${reminder.name} - ${reminder.dosage || 'Take your medication'}`;
+        }
+
+        toast.success(toastMessage, {
+          duration: 10000,
+          icon: reminder.type === 'appointment' ? '🏥' : '💊',
+          style: {
+            background: '#fff',
+            color: '#363636',
+            padding: '16px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
+          },
+        });
+      } catch (toastError) {
+        console.error('Error showing toast:', toastError);
+      }
+    } catch (error) {
+      console.error('Error in triggerNotification:', error);
+      // Fallback: at least try to show a basic alert
+      try {
+        if (typeof window !== 'undefined') {
+          const message = reminder.type === 'appointment'
+            ? `Appointment: ${reminder.name}`
+            : `Medication: ${reminder.name}`;
+          alert(message);
+        }
+      } catch (alertError) {
+        console.error('Even alert failed:', alertError);
+      }
     }
-
-    // Show toast notification
-    let toastMessage = '';
-    if (reminder.type === 'appointment') {
-      const timeInfo = isAdvanceReminder && reminder.reminderAdvance
-        ? ` in ${reminder.reminderAdvance}h`
-        : '';
-      toastMessage = `${reminder.name}${timeInfo} - ${reminder.doctorName ? `Dr. ${reminder.doctorName}` : 'Appointment'}`;
-    } else {
-      toastMessage = `${reminder.name} - ${reminder.dosage || 'Take your medication'}`;
-    }
-
-    toast.success(toastMessage, {
-      duration: 10000,
-      icon: reminder.type === 'appointment' ? '🏥' : '💊',
-      style: {
-        background: '#fff',
-        color: '#363636',
-        padding: '16px',
-        borderRadius: '12px',
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-      },
-    });
   };
 
   const requestPermission = async (): Promise<boolean> => {
