@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getCurrentCustomUser } from '@/lib/customAuth';
 import { toast } from 'react-hot-toast';
+import NotificationToggle from './NotificationToggle';
 
 export default function Navbar() {
   const router = useRouter();
@@ -115,6 +116,9 @@ export default function Navbar() {
 
           {/* User Menu (Desktop) */}
           <div className="hidden md:flex items-center gap-4">
+            {/* Notification Toggle */}
+            <NotificationToggle />
+            
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}

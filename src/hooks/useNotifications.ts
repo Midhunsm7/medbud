@@ -4,17 +4,36 @@ import { useEffect, useRef, useState } from 'react';
 import type { Reminder } from '@/types/reminder';
 import { playNotificationSound, playCustomAlarmSound } from '@/lib/sounds';
 import { toast } from 'react-hot-toast';
+import {
+  initNotifications,
+  requestNotificationPermission,
+  areNotificationsEnabled,
+  showNotification,
+  getNotificationPermission
+} from '@/lib/notifications';
 
 export function useNotifications(reminders: Reminder[]) {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [serviceWorkerReady, setServiceWorkerReady] = useState(false);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const notifiedRemindersRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    // Check initial permission
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setNotificationPermission(Notification.permission);
-    }
+    // Initialize service worker and check permission
+    const init = async () => {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        setNotificationPermission(getNotificationPermission());
+        
+        // Initialize service worker
+        const registration = await initNotifications();
+        if (registration) {
+          setServiceWorkerReady(true);
+          console.log('✅ Service Worker ready for notifications');
+        }
+      }
+    };
+    
+    init();
   }, []);
 
   useEffect(() => {
@@ -91,7 +110,7 @@ export function useNotifications(reminders: Reminder[]) {
     return reminderHour === currentHour && Math.abs(reminderMinute - currentMinute) <= 1;
   };
 
-  const triggerNotification = (reminder: Reminder, isAdvanceReminder: boolean = false) => {
+  const triggerNotification = async (reminder: Reminder, isAdvanceReminder: boolean = false) => {
     try {
       // Play sound with error handling - use custom sound if available
       try {
@@ -110,8 +129,8 @@ export function useNotifications(reminders: Reminder[]) {
         }
       }
 
-      // Show browser notification with error handling
-      if (notificationPermission === 'granted' && typeof window !== 'undefined' && 'Notification' in window) {
+      // Show browser notification via service worker (works in background)
+      if (areNotificationsEnabled() && serviceWorkerReady) {
         try {
           const title = reminder.type === 'appointment'
             ? isAdvanceReminder
@@ -129,23 +148,18 @@ export function useNotifications(reminders: Reminder[]) {
             body = `Time to take ${reminder.dosage || 'your medication'}`;
           }
 
-          const notification = new Notification(title, {
+          // Use service worker notification (works in background)
+          await showNotification(title, {
             body,
-            icon: '/logo.png',
-            badge: '/logo.png',
             tag: reminder.id,
-            requireInteraction: true,
-            silent: false,
+            data: {
+              reminderId: reminder.id,
+              type: reminder.type,
+              name: reminder.name,
+            },
           });
-
-          notification.onclick = () => {
-            try {
-              window.focus();
-              notification.close();
-            } catch (e) {
-              console.error('Error handling notification click:', e);
-            }
-          };
+          
+          console.log('✅ Notification shown via service worker');
         } catch (notifError) {
           console.error('Error showing notification:', notifError);
         }
@@ -200,14 +214,24 @@ export function useNotifications(reminders: Reminder[]) {
     }
 
     try {
-      const permission = await Notification.requestPermission();
-      setNotificationPermission(permission);
+      const granted = await requestNotificationPermission();
+      const newPermission = getNotificationPermission();
+      setNotificationPermission(newPermission);
       
-      if (permission === 'granted') {
-        toast.success('Notifications enabled! You\'ll receive reminders with sound.');
+      if (granted) {
+        toast.success('Notifications enabled! You\'ll receive reminders even when the app is closed.');
+        
+        // Initialize service worker if not already done
+        if (!serviceWorkerReady) {
+          const registration = await initNotifications();
+          if (registration) {
+            setServiceWorkerReady(true);
+          }
+        }
+        
         return true;
       } else {
-        toast.error('Notification permission denied');
+        toast.error('Notification permission denied. Enable in browser settings to receive reminders.');
         return false;
       }
     } catch (error) {
