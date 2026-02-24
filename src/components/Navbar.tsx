@@ -67,7 +67,6 @@ export default function Navbar() {
   const navItems = [
     { href: '/reminders', label: 'Reminders', icon: <Bell className="w-5 h-5" /> },
     { href: '/calendar', label: 'Calendar', icon: <Calendar className="w-5 h-5" /> },
-    { href: '/history', label: 'History', icon: <History className="w-5 h-5" /> },
   ];
 
   const userMenuItems = [
