@@ -364,7 +364,7 @@ export default function Home() {
 
           <div className="border-t border-gray-800 pt-8 text-center">
             <p className="text-sm">
-              © 2024 MediReminder. All rights reserved. Made with ❤️ for better health.
+              © 2026 MediBud. All rights reserved. Made with ❤️ for better health.
             </p>
           </div>
         </div>
@@ -373,4 +373,3 @@ export default function Home() {
   );
 }
 
-// Made with Bob

@@ -26,21 +26,17 @@ export function useReminders() {
         return;
       }
 
-      // Query Supabase directly (no RLS)
-      const { data, error } = await supabase
-        .from('reminders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('next_date', { ascending: true });
-
-      if (error) {
-        console.error('Error loading reminders:', error);
-        toast.error('Failed to load reminders from database');
-        return;
+      // Use API route instead of direct Supabase call
+      const response = await fetch('/api/reminders');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch reminders');
       }
 
+      const data = await response.json();
+
       // Transform database data to match Reminder type
-      const transformedReminders: Reminder[] = (data || []).map(item => ({
+      const transformedReminders: Reminder[] = (data.reminders || []).map((item: any) => ({
         id: item.id,
         type: item.type as 'medication' | 'appointment',
         name: item.name,
@@ -59,7 +55,7 @@ export function useReminders() {
       }));
 
       setReminders(transformedReminders);
-      console.log(`✅ Loaded ${transformedReminders.length} reminders from database`);
+      console.log(`✅ Loaded ${transformedReminders.length} reminders from API`);
     } catch (error) {
       console.error('Error in loadReminders:', error);
       toast.error('Failed to load reminders');
@@ -77,106 +73,75 @@ export function useReminders() {
         return;
       }
 
-      // Transform to database format
-      const dbReminder = {
-        id: reminder.id,
-        user_id: user.id, // Custom auth user ID
-        type: reminder.type,
-        name: reminder.name,
-        dosage: reminder.dosage,
-        doctor_name: reminder.doctorName,
-        location: reminder.location,
-        appointment_date: reminder.appointmentDate,
-        reminder_advance: reminder.reminderAdvance,
-        times: reminder.times,
-        start_date: reminder.startDate || new Date().toISOString(),
-        next_date: reminder.nextDate.toISOString(),
-        end_date: reminder.endDate,
-        frequency: reminder.frequency,
-        notes: reminder.notes,
-        taken: reminder.taken || false,
-      };
+      // Use API route instead of direct Supabase call
+      const response = await fetch('/api/reminders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reminder }),
+      });
 
-      // Insert into Supabase (no RLS)
-      const { error } = await supabase
-        .from('reminders')
-        .insert([dbReminder]);
-
-      if (error) {
-        console.error('Error adding reminder:', error);
-        toast.error('Failed to add reminder to database');
-        return;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to add reminder');
       }
 
       // Update local state
       setReminders(prev => [reminder, ...prev]);
-      console.log('✅ Reminder added to database');
-    } catch (error) {
+      toast.success('Reminder added successfully!');
+      console.log('✅ Reminder added via API');
+    } catch (error: any) {
       console.error('Error in addReminder:', error);
-      toast.error('Failed to add reminder');
+      toast.error(error.message || 'Failed to add reminder');
     }
   };
 
   const removeReminder = async (id: string) => {
     try {
-      // Delete from Supabase (no RLS)
-      const { error } = await supabase
-        .from('reminders')
-        .delete()
-        .eq('id', id);
+      // Use API route instead of direct Supabase call
+      const response = await fetch(`/api/reminders?id=${id}`, {
+        method: 'DELETE',
+      });
 
-      if (error) {
-        console.error('Error deleting reminder:', error);
-        toast.error('Failed to delete reminder from database');
-        return;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete reminder');
       }
 
       // Update local state
       setReminders(prev => prev.filter(r => r.id !== id));
-      console.log('✅ Reminder deleted from database');
-    } catch (error) {
+      toast.success('Reminder deleted successfully!');
+      console.log('✅ Reminder deleted via API');
+    } catch (error: any) {
       console.error('Error in removeReminder:', error);
-      toast.error('Failed to delete reminder');
+      toast.error(error.message || 'Failed to delete reminder');
     }
   };
 
   const updateReminder = async (reminder: Reminder) => {
     try {
-      // Transform to database format
-      const dbReminder = {
-        type: reminder.type,
-        name: reminder.name,
-        dosage: reminder.dosage,
-        doctor_name: reminder.doctorName,
-        location: reminder.location,
-        appointment_date: reminder.appointmentDate,
-        reminder_advance: reminder.reminderAdvance,
-        times: reminder.times,
-        next_date: reminder.nextDate.toISOString(),
-        end_date: reminder.endDate,
-        frequency: reminder.frequency,
-        notes: reminder.notes,
-        taken: reminder.taken,
-      };
+      // Use API route instead of direct Supabase call
+      const response = await fetch('/api/reminders', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reminder }),
+      });
 
-      // Update in Supabase (no RLS)
-      const { error } = await supabase
-        .from('reminders')
-        .update(dbReminder)
-        .eq('id', reminder.id);
-
-      if (error) {
-        console.error('Error updating reminder:', error);
-        toast.error('Failed to update reminder in database');
-        return;
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update reminder');
       }
 
       // Update local state
       setReminders(prev => prev.map(r => r.id === reminder.id ? reminder : r));
-      console.log('✅ Reminder updated in database');
-    } catch (error) {
+      toast.success('Reminder updated successfully!');
+      console.log('✅ Reminder updated via API');
+    } catch (error: any) {
       console.error('Error in updateReminder:', error);
-      toast.error('Failed to update reminder');
+      toast.error(error.message || 'Failed to update reminder');
     }
   };
 

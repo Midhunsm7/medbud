@@ -95,19 +95,18 @@ export default function CalendarPage() {
         return;
       }
 
-      // Try to fetch from reminders table, but handle gracefully if it doesn't exist
-      const { data, error } = await supabase
-        .from('reminders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('start_date', { ascending: true });
-
-      if (error) {
-        console.log('No reminders found or table not accessible:', error.message);
+      // Use API route instead of direct Supabase call
+      const response = await fetch('/api/reminders');
+      
+      if (!response.ok) {
+        console.log('Failed to fetch reminders');
         setReminders([]);
-      } else {
-        setReminders(data || []);
+        setLoading(false);
+        return;
       }
+
+      const data = await response.json();
+      setReminders(data.reminders || []);
     } catch (error) {
       console.log('Error fetching reminders:', error);
       setReminders([]);
