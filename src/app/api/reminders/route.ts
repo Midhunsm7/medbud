@@ -118,6 +118,64 @@ export async function POST(req: Request) {
       )
     }
 
+    // Schedule push notifications for each time
+    try {
+      const notificationIds: string[] = []
+      
+      for (const time of reminder.times) {
+        // Parse the time (format: "HH:MM")
+        const [hours, minutes] = time.split(':').map(Number)
+        
+        // Create notification date
+        const notificationDate = new Date(reminder.nextDate)
+        notificationDate.setHours(hours, minutes, 0, 0)
+        
+        // Only schedule if in the future
+        if (notificationDate > new Date()) {
+          const scheduleResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/schedule`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': `custom_session=${encodeURIComponent(JSON.stringify({ user_id: user.id }))}`,
+            },
+            body: JSON.stringify({
+              title: reminder.type === 'medication'
+                ? `Time to take ${reminder.name}`
+                : `Appointment: ${reminder.name}`,
+              message: reminder.type === 'medication'
+                ? `Don't forget to take your ${reminder.dosage || 'medication'}`
+                : `Appointment with ${reminder.doctorName || 'doctor'} at ${reminder.location || 'clinic'}`,
+              sendAfter: notificationDate.toISOString(),
+              reminderId: data.id,
+              reminderData: {
+                type: reminder.type,
+                name: reminder.name,
+                time: time,
+              },
+            }),
+          })
+          
+          const scheduleResult = await scheduleResponse.json()
+          if (scheduleResult.success && scheduleResult.notificationId) {
+            notificationIds.push(scheduleResult.notificationId)
+          }
+        }
+      }
+      
+      // Store notification IDs in the reminder (optional - for tracking)
+      if (notificationIds.length > 0) {
+        await supabase
+          .from('reminders')
+          .update({ notification_ids: notificationIds })
+          .eq('id', data.id)
+      }
+      
+      console.log(`Scheduled ${notificationIds.length} push notifications for reminder ${data.id}`)
+    } catch (notifError) {
+      console.error('Error scheduling push notifications:', notifError)
+      // Don't fail the reminder creation if notification scheduling fails
+    }
+
     return NextResponse.json({
       success: true,
       reminder: data
@@ -224,6 +282,32 @@ export async function DELETE(req: Request) {
         { error: 'Reminder ID is required' },
         { status: 400 }
       )
+    }
+
+    // First, get the reminder to check for notification IDs
+    const { data: reminderData } = await supabase
+      .from('reminders')
+      .select('notification_ids')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+
+    // Cancel scheduled push notifications if they exist
+    if (reminderData?.notification_ids && Array.isArray(reminderData.notification_ids)) {
+      try {
+        for (const notificationId of reminderData.notification_ids) {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/schedule?id=${notificationId}`, {
+            method: 'DELETE',
+            headers: {
+              'Cookie': `custom_session=${encodeURIComponent(JSON.stringify({ user_id: user.id }))}`,
+            },
+          })
+        }
+        console.log(`Cancelled ${reminderData.notification_ids.length} push notifications`)
+      } catch (notifError) {
+        console.error('Error cancelling push notifications:', notifError)
+        // Continue with deletion even if notification cancellation fails
+      }
     }
 
     const { error } = await supabase

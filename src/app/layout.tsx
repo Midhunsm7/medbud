@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import Navbar from '@/components/Navbar'
 import InstallPrompt from '@/components/InstallPrompt'
+import OneSignalInit from '@/components/OneSignalInit'
 import Script from 'next/script'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -48,6 +49,9 @@ export default function RootLayout({
         
         {/* Install Prompt */}
         <InstallPrompt />
+        
+        {/* OneSignal Push Notifications */}
+        <OneSignalInit />
         
         {/* PWA Service Worker Registration */}
         <Script id="sw-register" strategy="afterInteractive">
