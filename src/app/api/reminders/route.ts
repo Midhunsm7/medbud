@@ -82,8 +82,8 @@ export async function POST(req: Request) {
     }
 
     // Transform to database format
+    // Note: Don't include 'id' - let the database generate it to avoid duplicates
     const dbReminder = {
-      id: reminder.id,
       user_id: user.id,
       type: reminder.type,
       name: reminder.name,
