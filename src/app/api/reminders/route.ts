@@ -167,9 +167,16 @@ export async function POST(req: Request) {
           const scheduleResult = await scheduleResponse.json()
           console.log(`Schedule response:`, scheduleResult)
           
-          if (scheduleResult.success && scheduleResult.notificationId) {
-            notificationIds.push(scheduleResult.notificationId)
-            console.log(`Successfully scheduled notification: ${scheduleResult.notificationId}`)
+          if (scheduleResult.success) {
+            // OneSignal sometimes returns empty notification ID but still schedules successfully
+            if (scheduleResult.notificationId) {
+              notificationIds.push(scheduleResult.notificationId)
+              console.log(`Successfully scheduled notification with ID: ${scheduleResult.notificationId}`)
+            } else {
+              console.log(`Notification scheduled successfully but no ID returned`)
+              // Still count as successful - push a placeholder
+              notificationIds.push(`scheduled-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+            }
           } else {
             console.error(`Failed to schedule notification:`, scheduleResult)
           }

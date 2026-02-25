@@ -87,12 +87,25 @@ export async function POST(request: NextRequest) {
     });
 
     const result = await response.json();
+    
+    console.log('OneSignal API Response:', JSON.stringify(result, null, 2));
 
     if (response.ok) {
+      // Check if we got a notification ID
+      const notificationId = result.id || result.notification_id || '';
+      
+      if (!notificationId) {
+        console.warn('OneSignal returned success but no notification ID:', result);
+      }
+      
       return NextResponse.json({
         success: true,
-        notificationId: result.id,
+        notificationId: notificationId,
         message: 'Notification scheduled successfully',
+        debug: {
+          hasId: !!notificationId,
+          responseKeys: Object.keys(result),
+        }
       });
     } else {
       console.error('OneSignal API error:', result);
