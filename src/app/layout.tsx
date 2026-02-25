@@ -42,6 +42,9 @@ export default function RootLayout({
         <link rel="icon" href="/logo.png" />
       </head>
       <body className={inter.className}>
+        {/* OneSignal Initialization */}
+        <OneSignalInit />
+        
         <Navbar />
         <main className="min-h-screen">
           {children}
@@ -49,9 +52,6 @@ export default function RootLayout({
         
         {/* Install Prompt */}
         <InstallPrompt />
-        
-        {/* OneSignal Push Notifications */}
-        <OneSignalInit />
         
         {/* PWA Service Worker Registration */}
         <Script id="sw-register" strategy="afterInteractive">
