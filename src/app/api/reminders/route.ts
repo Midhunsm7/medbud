@@ -121,17 +121,26 @@ export async function POST(req: Request) {
     // Schedule push notifications for each time
     try {
       const notificationIds: string[] = []
+      const now = new Date()
+      
+      console.log(`Scheduling notifications for reminder. Current time: ${now.toISOString()}`)
       
       for (const time of reminder.times) {
         // Parse the time (format: "HH:MM")
         const [hours, minutes] = time.split(':').map(Number)
         
-        // Create notification date
+        // Create notification date using the reminder's nextDate
         const notificationDate = new Date(reminder.nextDate)
         notificationDate.setHours(hours, minutes, 0, 0)
         
-        // Only schedule if in the future
-        if (notificationDate > new Date()) {
+        console.log(`Notification time for ${time}: ${notificationDate.toISOString()}`)
+        console.log(`Is in future? ${notificationDate > now}`)
+        
+        // Only schedule if in the future (with 1 minute buffer to account for processing time)
+        const bufferTime = new Date(now.getTime() + 60000) // Add 1 minute buffer
+        if (notificationDate > bufferTime) {
+          console.log(`Scheduling notification for ${notificationDate.toISOString()}`)
+          
           const scheduleResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/schedule`, {
             method: 'POST',
             headers: {
@@ -156,9 +165,16 @@ export async function POST(req: Request) {
           })
           
           const scheduleResult = await scheduleResponse.json()
+          console.log(`Schedule response:`, scheduleResult)
+          
           if (scheduleResult.success && scheduleResult.notificationId) {
             notificationIds.push(scheduleResult.notificationId)
+            console.log(`Successfully scheduled notification: ${scheduleResult.notificationId}`)
+          } else {
+            console.error(`Failed to schedule notification:`, scheduleResult)
           }
+        } else {
+          console.log(`Skipping notification - time ${notificationDate.toISOString()} is not in the future (current: ${now.toISOString()})`)
         }
       }
       

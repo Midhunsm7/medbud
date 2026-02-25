@@ -126,6 +126,23 @@ export default function ReminderForm({
     if (values.period === 'AM' && hours24 === 12) hours24 = 0;
     const time24 = `${hours24.toString().padStart(2, '0')}:${values.minute}`;
 
+    // Calculate next date for the reminder
+    let nextDate = new Date();
+    
+    // For appointments, use the appointment date
+    if (values.type === 'appointment' && values.appointmentDate) {
+      nextDate = new Date(values.appointmentDate);
+      nextDate.setHours(hours24, parseInt(values.minute), 0, 0);
+    } else {
+      // For medications, set the time for today
+      nextDate.setHours(hours24, parseInt(values.minute), 0, 0);
+      
+      // If the time has already passed today, move to tomorrow
+      if (nextDate <= new Date()) {
+        nextDate.setDate(nextDate.getDate() + 1);
+      }
+    }
+
     const newReminder: Reminder = {
       id: initialData?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : generateId()),
       type: values.type,
@@ -138,20 +155,11 @@ export default function ReminderForm({
       times: [time24],
       notes: values.notes || '',
       frequency: values.frequency,
-      nextDate: new Date(),
+      nextDate: nextDate,
       alarmSoundUrl: customSoundUrl || undefined,
       alarmSoundName: customSoundFile?.name || initialData?.alarmSoundName,
       useCustomSound: useCustomSound
     };
-    
-    // For appointments, set nextDate based on appointmentDate
-    if (values.type === 'appointment' && values.appointmentDate) {
-      const appointmentDateTime = new Date(values.appointmentDate);
-      appointmentDateTime.setHours(hours24, parseInt(values.minute), 0, 0);
-      newReminder.nextDate = appointmentDateTime;
-    } else {
-      newReminder.nextDate.setHours(hours24, parseInt(values.minute), 0, 0);
-    }
     
     // Show success animation
     setShowSuccess(true);
