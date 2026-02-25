@@ -162,7 +162,6 @@ export async function scheduleNotification(params: {
         ios_badgeType: 'Increase',
         ios_badgeCount: 1,
         // Android specific settings
-        android_channel_id: 'medication-reminders',
         priority: 10,
       }),
     });
@@ -237,7 +236,6 @@ export async function sendImmediateNotification(params: {
         ios_badgeType: 'Increase',
         ios_badgeCount: 1,
         // Android specific settings
-        android_channel_id: 'medication-reminders',
         priority: 10,
       }),
     });

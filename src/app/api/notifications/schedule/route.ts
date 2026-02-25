@@ -79,9 +79,7 @@ export async function POST(request: NextRequest) {
         ios_badgeCount: 1,
         ios_sound: 'default',
         // Android specific settings
-        android_channel_id: 'medication-reminders',
         priority: 10,
-        android_sound: 'default',
         // Additional settings
         ttl: 86400, // 24 hours
         content_available: true,
@@ -244,9 +242,7 @@ export async function PUT(request: NextRequest) {
         ios_badgeCount: 1,
         ios_sound: 'default',
         // Android specific settings
-        android_channel_id: 'medication-reminders',
         priority: 10,
-        android_sound: 'default',
       }),
     });
 
