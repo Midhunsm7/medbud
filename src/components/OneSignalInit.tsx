@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { initOneSignal, requestNotificationPermission, setExternalUserId, getNotificationPermission } from '@/lib/onesignal'
+import { initOneSignal, requestNotificationPermission, setExternalUserId, getNotificationPermission, getOneSignalPlayerId } from '@/lib/onesignal'
 import toast from 'react-hot-toast'
 
 /**
@@ -74,7 +74,22 @@ export default function OneSignalInit() {
                 const granted = await requestNotificationPermission()
                 if (granted) {
                   setPermissionStatus('granted')
-                  toast.success('Notifications enabled! You\'ll receive reminders even when the app is closed.')
+                  
+                  // Wait for subscription to complete
+                  await new Promise(resolve => setTimeout(resolve, 2000))
+                  
+                  // Verify subscription
+                  const playerId = await getOneSignalPlayerId()
+                  if (playerId) {
+                    console.log('✅ OneSignal subscription successful:', playerId)
+                    toast.success('Notifications enabled! You\'ll receive reminders even when the app is closed.')
+                  } else {
+                    console.warn('⚠️ Permission granted but subscription incomplete')
+                    toast('Notifications enabled, but subscription is still processing. Please refresh if you don\'t receive notifications.', {
+                      icon: '⚠️',
+                      duration: 6000,
+                    })
+                  }
                 } else {
                   setPermissionStatus('denied')
                   toast.error('Notifications blocked. You can enable them in your browser settings.')
