@@ -56,8 +56,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Try to get OneSignal Player ID from user's session/database
-    // This is a fallback if external user ID linking hasn't happened yet
+    // WORKAROUND: OneSignal SDK CDN is blocked, so we can't link individual users
+    // Solution: Send to ALL subscribed users using segments
+    // This is not ideal but works until CDN access is fixed
+    
     let notificationPayload: any = {
       app_id: ONESIGNAL_APP_ID,
       headings: { en: title },
@@ -66,6 +68,7 @@ export async function POST(request: NextRequest) {
       data: {
         reminderId: reminderId || null,
         type: 'medication_reminder',
+        userId: userId.toString(), // Include user ID in data for filtering
         ...reminderData,
       },
       // iOS specific settings
@@ -79,19 +82,18 @@ export async function POST(request: NextRequest) {
       content_available: true,
     };
 
-    // Try external user ID first (preferred method)
-    notificationPayload.include_external_user_ids = [userId.toString()];
+    // TEMPORARY FIX: Send to all subscribed users
+    // This works even when individual user linking fails
+    notificationPayload.included_segments = ['Subscribed Users'];
     
-    // FALLBACK: If you have player IDs stored in database, you could use:
-    // notificationPayload.include_player_ids = [playerIdFromDatabase];
-    
-    // Or send to ALL subscribed users (not recommended for production):
-    // notificationPayload.included_segments = ['Subscribed Users'];
+    // NOTE: Once OneSignal SDK CDN access is fixed, switch back to:
+    // notificationPayload.include_external_user_ids = [userId.toString()];
 
-    console.log('Attempting to send notification with payload:', {
+    console.log('🔵 [schedule] Sending notification to ALL subscribed users (CDN workaround):', {
       userId: userId.toString(),
       title,
       sendAfter: new Date(sendAfter).toISOString(),
+      method: 'segments (all users)',
     });
 
     // Schedule notification via OneSignal API
