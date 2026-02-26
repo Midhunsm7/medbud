@@ -73,15 +73,13 @@ export async function POST(request: NextRequest) {
         reminderId: reminderId || null,
         type: 'medication_reminder',
         soundUrl: soundUrl, // Pass sound URL to service worker
+        playCustomSound: true, // Flag to play custom sound
         ...reminderData,
       },
       // iOS specific settings
       ios_badgeType: 'Increase',
       ios_badgeCount: 1,
-      ios_sound: soundUrl, // Custom sound for iOS
       // Android specific settings
-      android_sound: soundUrl, // Custom sound for Android
-      android_channel_id: 'medication_reminders', // Custom channel for Android
       priority: 10,
       // Additional settings
       ttl: 86400, // 24 hours

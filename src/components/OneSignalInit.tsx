@@ -167,7 +167,42 @@ export default function OneSignalInit() {
     }
 
     initialize()
-  }, [])
+
+    // Listen for foreground notifications and play custom sound
+    const handleForegroundNotification = (event: any) => {
+      console.log('🔔 [OneSignalInit] Foreground notification received:', event)
+      
+      // Check if custom sound should be played
+      if (event.notification?.data?.playCustomSound) {
+        const soundUrl = event.notification.data.soundUrl || '/sound.wav'
+        console.log('🔊 [OneSignalInit] Playing custom sound:', soundUrl)
+        
+        try {
+          const audio = new Audio(soundUrl)
+          audio.volume = 1.0
+          audio.play().then(() => {
+            console.log('✅ [OneSignalInit] Custom sound played successfully')
+          }).catch(err => {
+            console.error('❌ [OneSignalInit] Error playing sound:', err)
+          })
+        } catch (error) {
+          console.error('❌ [OneSignalInit] Error creating audio:', error)
+        }
+      }
+    }
+
+    // Set up OneSignal event listener for foreground notifications
+    if (typeof window !== 'undefined' && window.OneSignal) {
+      window.OneSignal.Notifications.addEventListener('foregroundWillDisplay', handleForegroundNotification)
+    }
+
+    return () => {
+      // Cleanup
+      if (typeof window !== 'undefined' && window.OneSignal) {
+        window.OneSignal.Notifications.removeEventListener('foregroundWillDisplay', handleForegroundNotification)
+      }
+    }
+  }, [retryCount])
 
   const showPermissionPrompt = () => {
     toast(
