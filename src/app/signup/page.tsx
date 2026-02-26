@@ -106,8 +106,8 @@ export default function SignupPage() {
       if (data.autoLogin && data.session) {
         toast.success('Account created! Setting up notifications...');
         
-        // Redirect to reminders page where OneSignal will initialize
-        router.push('/reminders?newUser=true');
+        // Redirect to reminders page with flags for auto-subscription
+        router.push('/reminders?newUser=true&autoSubscribe=true');
       } else {
         // Fallback: redirect to login if auto-login failed
         toast.success('Account created successfully!');

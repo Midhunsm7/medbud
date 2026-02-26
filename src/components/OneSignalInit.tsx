@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { initOneSignal, requestNotificationPermission, setExternalUserId, getNotificationPermission, getOneSignalPlayerId } from '@/lib/onesignal'
+import { initOneSignal, ensureSubscribed, setExternalUserId, getNotificationPermission, getOneSignalPlayerId } from '@/lib/onesignal'
 import toast from 'react-hot-toast'
 
 /**
@@ -22,25 +22,6 @@ export default function OneSignalInit() {
         await initOneSignal()
         setIsInitialized(true)
 
-        // Get current user from session cookie
-        const sessionCookie = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('custom_session='))
-        
-        if (sessionCookie) {
-          try {
-            const sessionValue = sessionCookie.split('=')[1]
-            const session = JSON.parse(decodeURIComponent(sessionValue))
-            if (session.user_id) {
-              // Link OneSignal to user ID
-              await setExternalUserId(session.user_id.toString())
-              console.log('✅ OneSignal linked to user:', session.user_id)
-            }
-          } catch (error) {
-            console.error('Failed to parse session:', error)
-          }
-        }
-
         // Check current permission status
         const permission = getNotificationPermission()
         setPermissionStatus(permission)
@@ -48,21 +29,74 @@ export default function OneSignalInit() {
         // Check if this is a new user (from signup redirect)
         const urlParams = new URLSearchParams(window.location.search)
         const isNewUser = urlParams.has('newUser')
+        const autoSubscribe = urlParams.has('autoSubscribe')
 
-        // If permission is default (not asked yet), show a prompt
-        if (permission === 'default') {
-          // Show immediately for new users, otherwise wait 3 seconds
+        // Get current user from session cookie
+        const sessionCookie = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('custom_session='))
+        
+        let userId: string | null = null
+        if (sessionCookie) {
+          try {
+            const sessionValue = sessionCookie.split('=')[1]
+            const session = JSON.parse(decodeURIComponent(sessionValue))
+            userId = session.user_id?.toString()
+          } catch (error) {
+            console.error('Failed to parse session:', error)
+          }
+        }
+
+        // Auto-subscribe for new users or when explicitly requested
+        if ((isNewUser || autoSubscribe) && userId) {
+          console.log('🔔 Auto-subscribing user:', userId)
+          
+          // Ensure user is subscribed first
+          const { subscribed, playerId } = await ensureSubscribed()
+          
+          if (subscribed && playerId) {
+            // Now link the external user ID
+            try {
+              await setExternalUserId(userId)
+              console.log('✅ User subscribed and linked:', userId, playerId)
+              toast.success('Notifications enabled! You\'ll receive medication reminders.')
+            } catch (error) {
+              console.error('Failed to link user ID:', error)
+              toast.error('Subscription successful but linking failed. Please refresh.')
+            }
+          } else {
+            console.warn('⚠️ Auto-subscription failed')
+            // Show manual prompt
+            setTimeout(() => showPermissionPrompt(), 1000)
+          }
+        } else if (permission === 'granted' && userId) {
+          // User already granted permission, ensure they're subscribed and linked
+          const playerId = await getOneSignalPlayerId()
+          if (playerId) {
+            try {
+              await setExternalUserId(userId)
+              console.log('✅ Existing user linked:', userId, playerId)
+            } catch (error) {
+              console.error('Failed to link existing user:', error)
+            }
+          } else {
+            // Permission granted but not subscribed - try to subscribe
+            const { subscribed } = await ensureSubscribed()
+            if (subscribed) {
+              try {
+                await setExternalUserId(userId)
+                console.log('✅ User re-subscribed and linked:', userId)
+              } catch (error) {
+                console.error('Failed to link user after re-subscription:', error)
+              }
+            }
+          }
+        } else if (permission === 'default') {
+          // Show prompt for users who haven't been asked yet
           const delay = isNewUser ? 500 : 3000
           setTimeout(() => {
             showPermissionPrompt()
           }, delay)
-        } else if (permission === 'granted' && isNewUser) {
-          // If already granted (shouldn't happen for new users), verify subscription
-          const playerId = await getOneSignalPlayerId()
-          if (playerId) {
-            console.log('✅ New user already subscribed:', playerId)
-            toast.success('Notifications enabled! You\'ll receive medication reminders.')
-          }
         }
       } catch (error) {
         console.error('Failed to initialize OneSignal:', error)
@@ -84,25 +118,32 @@ export default function OneSignalInit() {
             <button
               onClick={async () => {
                 toast.dismiss(t.id)
-                const granted = await requestNotificationPermission()
-                if (granted) {
+                
+                // Use ensureSubscribed to handle the full flow
+                const { subscribed, playerId } = await ensureSubscribed()
+                
+                if (subscribed && playerId) {
                   setPermissionStatus('granted')
                   
-                  // Wait for subscription to complete
-                  await new Promise(resolve => setTimeout(resolve, 2000))
+                  // Link user ID if available
+                  const sessionCookie = document.cookie
+                    .split('; ')
+                    .find(row => row.startsWith('custom_session='))
                   
-                  // Verify subscription
-                  const playerId = await getOneSignalPlayerId()
-                  if (playerId) {
-                    console.log('✅ OneSignal subscription successful:', playerId)
-                    toast.success('Notifications enabled! You\'ll receive reminders even when the app is closed.')
-                  } else {
-                    console.warn('⚠️ Permission granted but subscription incomplete')
-                    toast('Notifications enabled, but subscription is still processing. Please refresh if you don\'t receive notifications.', {
-                      icon: '⚠️',
-                      duration: 6000,
-                    })
+                  if (sessionCookie) {
+                    try {
+                      const sessionValue = sessionCookie.split('=')[1]
+                      const session = JSON.parse(decodeURIComponent(sessionValue))
+                      if (session.user_id) {
+                        await setExternalUserId(session.user_id.toString())
+                        console.log('✅ User subscribed and linked:', session.user_id, playerId)
+                      }
+                    } catch (error) {
+                      console.error('Failed to link user:', error)
+                    }
                   }
+                  
+                  toast.success('Notifications enabled! You\'ll receive reminders even when the app is closed.')
                 } else {
                   setPermissionStatus('denied')
                   toast.error('Notifications blocked. You can enable them in your browser settings.')

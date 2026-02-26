@@ -78,8 +78,9 @@ function LoginContent() {
         localStorage.setItem('custom_session', JSON.stringify(data.session));
       }
 
-      toast.success('Successfully logged in!');
-      router.push('/reminders');
+      toast.success('Successfully logged in! Setting up notifications...');
+      // Redirect with autoSubscribe flag to ensure OneSignal subscription
+      router.push('/reminders?autoSubscribe=true');
       router.refresh(); // Refresh to update middleware
 
     } catch (error: any) {

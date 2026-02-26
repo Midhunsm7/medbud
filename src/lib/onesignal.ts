@@ -80,7 +80,7 @@ export async function initOneSignal(): Promise<void> {
 }
 
 /**
- * Request notification permission from user
+ * Request notification permission from user and ensure subscription
  */
 export async function requestNotificationPermission(): Promise<boolean> {
   try {
@@ -90,6 +90,20 @@ export async function requestNotificationPermission(): Promise<boolean> {
 
     const permission = await OneSignalReact.Notifications.requestPermission();
     console.log('Notification permission:', permission);
+    
+    if (permission) {
+      // Wait a bit for subscription to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Verify subscription was created
+      const playerId = await OneSignalReact.User.PushSubscription.id;
+      if (playerId) {
+        console.log('✅ Push subscription created:', playerId);
+      } else {
+        console.warn('⚠️ Permission granted but no subscription ID yet');
+      }
+    }
+    
     return permission;
   } catch (error) {
     console.error('Failed to request notification permission:', error);
@@ -134,6 +148,7 @@ export async function isSubscribed(): Promise<boolean> {
 
 /**
  * Set external user ID (link OneSignal to your user ID)
+ * IMPORTANT: Only call this AFTER user is subscribed
  */
 export async function setExternalUserId(userId: string): Promise<void> {
   try {
@@ -141,10 +156,68 @@ export async function setExternalUserId(userId: string): Promise<void> {
       await initOneSignal();
     }
 
+    // Verify user is subscribed before linking
+    const playerId = await OneSignalReact.User.PushSubscription.id;
+    if (!playerId) {
+      console.warn('⚠️ Cannot set external user ID - user not subscribed yet');
+      throw new Error('User must be subscribed before linking external ID');
+    }
+
     await OneSignalReact.login(userId);
-    console.log('External user ID set:', userId);
+    console.log('✅ External user ID set:', userId, 'Player ID:', playerId);
   } catch (error) {
     console.error('Failed to set external user ID:', error);
+    throw error;
+  }
+}
+
+/**
+ * Ensure user is subscribed to push notifications
+ * This will request permission if needed and wait for subscription
+ */
+export async function ensureSubscribed(): Promise<{ subscribed: boolean; playerId: string | null }> {
+  try {
+    if (!isInitialized) {
+      await initOneSignal();
+    }
+
+    // Check if already subscribed
+    let playerId = await OneSignalReact.User.PushSubscription.id;
+    if (playerId) {
+      console.log('✅ Already subscribed:', playerId);
+      return { subscribed: true, playerId };
+    }
+
+    // Check permission status
+    const permission = await OneSignalReact.Notifications.permission;
+    
+    if (!permission) {
+      // Request permission
+      console.log('Requesting notification permission...');
+      const granted = await OneSignalReact.Notifications.requestPermission();
+      
+      if (!granted) {
+        console.log('❌ Permission denied');
+        return { subscribed: false, playerId: null };
+      }
+      
+      // Wait for subscription to complete
+      console.log('Waiting for subscription...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      playerId = await OneSignalReact.User.PushSubscription.id;
+    }
+
+    if (playerId) {
+      console.log('✅ Subscription successful:', playerId);
+      return { subscribed: true, playerId };
+    } else {
+      console.warn('⚠️ Permission granted but subscription incomplete');
+      return { subscribed: false, playerId: null };
+    }
+  } catch (error) {
+    console.error('Failed to ensure subscription:', error);
+    return { subscribed: false, playerId: null };
   }
 }
 
