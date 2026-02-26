@@ -22,13 +22,13 @@ let initPromise: Promise<void> | null = null;
 export async function initOneSignal(): Promise<void> {
   // If already initialized, return immediately
   if (isInitialized) {
-    console.log('OneSignal already initialized');
+    console.log('🔵 [onesignal.ts] OneSignal already initialized');
     return;
   }
 
   // If initialization is in progress, wait for it
   if (initPromise) {
-    console.log('OneSignal initialization in progress, waiting...');
+    console.log('🔵 [onesignal.ts] OneSignal initialization in progress, waiting...');
     return initPromise;
   }
 
@@ -37,17 +37,17 @@ export async function initOneSignal(): Promise<void> {
     try {
       // Check if we're in browser environment
       if (typeof window === 'undefined') {
-        console.log('OneSignal: Not in browser environment');
+        console.log('🔵 [onesignal.ts] Not in browser environment');
         return;
       }
 
       // Check if OneSignal credentials are configured
       if (ONESIGNAL_APP_ID === 'YOUR_ONESIGNAL_APP_ID') {
-        console.warn('OneSignal: App ID not configured. Please set NEXT_PUBLIC_ONESIGNAL_APP_ID in .env.local');
+        console.warn('❌ [onesignal.ts] App ID not configured. Please set NEXT_PUBLIC_ONESIGNAL_APP_ID in .env.local');
         return;
       }
 
-      console.log('Initializing OneSignal...');
+      console.log('🔵 [onesignal.ts] Starting OneSignal initialization with App ID:', ONESIGNAL_APP_ID);
       
       await OneSignalReact.init({
         appId: ONESIGNAL_APP_ID,
@@ -60,19 +60,19 @@ export async function initOneSignal(): Promise<void> {
       });
 
       isInitialized = true;
-      console.log('✅ OneSignal initialized successfully');
+      console.log('✅ [onesignal.ts] OneSignal initialized successfully');
 
       // Set up event listeners
       OneSignalReact.Notifications.addEventListener('click', (event) => {
-        console.log('Notification clicked:', event);
+        console.log('🔵 [onesignal.ts] Notification clicked:', event);
       });
 
       OneSignalReact.Notifications.addEventListener('foregroundWillDisplay', (event) => {
-        console.log('Notification received in foreground:', event);
+        console.log('🔵 [onesignal.ts] Notification received in foreground:', event);
       });
 
     } catch (error) {
-      console.error('Failed to initialize OneSignal:', error);
+      console.error('❌ [onesignal.ts] Failed to initialize OneSignal:', error);
       isInitialized = false;
       initPromise = null;
       throw error;
@@ -155,21 +155,28 @@ export async function isSubscribed(): Promise<boolean> {
  */
 export async function setExternalUserId(userId: string): Promise<void> {
   try {
+    console.log('🔵 [onesignal.ts] setExternalUserId() called with userId:', userId);
+    
     if (!isInitialized) {
+      console.log('🔵 [onesignal.ts] OneSignal not initialized, initializing...');
       await initOneSignal();
     }
 
     // Verify user is subscribed before linking
+    console.log('🔵 [onesignal.ts] Verifying subscription before linking...');
     const playerId = await OneSignalReact.User.PushSubscription.id;
+    console.log('🔵 [onesignal.ts] Player ID check result:', playerId);
+    
     if (!playerId) {
-      console.warn('⚠️ Cannot set external user ID - user not subscribed yet');
+      console.warn('⚠️ [onesignal.ts] Cannot set external user ID - user not subscribed yet');
       throw new Error('User must be subscribed before linking external ID');
     }
 
+    console.log('🔵 [onesignal.ts] Calling OneSignalReact.login() with userId:', userId);
     await OneSignalReact.login(userId);
-    console.log('✅ External user ID set:', userId, 'Player ID:', playerId);
+    console.log('✅ [onesignal.ts] External user ID set successfully:', userId, 'Player ID:', playerId);
   } catch (error) {
-    console.error('Failed to set external user ID:', error);
+    console.error('❌ [onesignal.ts] Failed to set external user ID:', error);
     throw error;
   }
 }
@@ -180,46 +187,57 @@ export async function setExternalUserId(userId: string): Promise<void> {
  */
 export async function ensureSubscribed(): Promise<{ subscribed: boolean; playerId: string | null }> {
   try {
+    console.log('🔵 [onesignal.ts] ensureSubscribed() called');
+    
     if (!isInitialized) {
+      console.log('🔵 [onesignal.ts] OneSignal not initialized, initializing now...');
       await initOneSignal();
     }
 
     // Check if already subscribed
+    console.log('🔵 [onesignal.ts] Checking for existing subscription...');
     let playerId = await OneSignalReact.User.PushSubscription.id;
+    console.log('🔵 [onesignal.ts] Existing player ID:', playerId);
+    
     if (playerId) {
-      console.log('✅ Already subscribed:', playerId);
+      console.log('✅ [onesignal.ts] Already subscribed:', playerId);
       return { subscribed: true, playerId };
     }
 
     // Check permission status
+    console.log('🔵 [onesignal.ts] Checking notification permission...');
     const permission = await OneSignalReact.Notifications.permission;
+    console.log('🔵 [onesignal.ts] Current permission:', permission);
     
     if (!permission) {
       // Request permission
-      console.log('Requesting notification permission...');
+      console.log('🔵 [onesignal.ts] Requesting notification permission...');
       const granted = await OneSignalReact.Notifications.requestPermission();
+      console.log('🔵 [onesignal.ts] Permission request result:', granted);
       
       if (!granted) {
-        console.log('❌ Permission denied');
+        console.log('❌ [onesignal.ts] Permission denied by user');
         return { subscribed: false, playerId: null };
       }
       
       // Wait for subscription to complete
-      console.log('Waiting for subscription...');
+      console.log('🔵 [onesignal.ts] Waiting 2 seconds for subscription to complete...');
       await new Promise(resolve => setTimeout(resolve, 2000));
       
+      console.log('🔵 [onesignal.ts] Checking for player ID after permission grant...');
       playerId = await OneSignalReact.User.PushSubscription.id;
+      console.log('🔵 [onesignal.ts] Player ID after wait:', playerId);
     }
 
     if (playerId) {
-      console.log('✅ Subscription successful:', playerId);
+      console.log('✅ [onesignal.ts] Subscription successful:', playerId);
       return { subscribed: true, playerId };
     } else {
-      console.warn('⚠️ Permission granted but subscription incomplete');
+      console.warn('⚠️ [onesignal.ts] Permission granted but subscription incomplete');
       return { subscribed: false, playerId: null };
     }
   } catch (error) {
-    console.error('Failed to ensure subscription:', error);
+    console.error('❌ [onesignal.ts] Failed to ensure subscription:', error);
     return { subscribed: false, playerId: null };
   }
 }
