@@ -12,53 +12,71 @@ const ONESIGNAL_APP_ID = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID || 'YOUR_ONESI
 const ONESIGNAL_REST_API_KEY = process.env.NEXT_PUBLIC_ONESIGNAL_REST_API_KEY || 'YOUR_REST_API_KEY';
 
 let isInitialized = false;
+let initPromise: Promise<void> | null = null;
 
 /**
  * Initialize OneSignal
  * Call this once when the app loads
+ * Prevents double initialization with promise caching
  */
 export async function initOneSignal(): Promise<void> {
+  // If already initialized, return immediately
   if (isInitialized) {
     console.log('OneSignal already initialized');
     return;
   }
 
-  try {
-    // Check if we're in browser environment
-    if (typeof window === 'undefined') {
-      console.log('OneSignal: Not in browser environment');
-      return;
-    }
-
-    // Check if OneSignal credentials are configured
-    if (ONESIGNAL_APP_ID === 'YOUR_ONESIGNAL_APP_ID') {
-      console.warn('OneSignal: App ID not configured. Please set NEXT_PUBLIC_ONESIGNAL_APP_ID in .env.local');
-      return;
-    }
-
-    console.log('Initializing OneSignal...');
-    
-    await OneSignalReact.init({
-      appId: ONESIGNAL_APP_ID,
-      allowLocalhostAsSecureOrigin: true, // For local development
-      // Let OneSignal handle the service worker automatically
-    });
-
-    isInitialized = true;
-    console.log('OneSignal initialized successfully');
-
-    // Set up event listeners
-    OneSignalReact.Notifications.addEventListener('click', (event) => {
-      console.log('Notification clicked:', event);
-    });
-
-    OneSignalReact.Notifications.addEventListener('foregroundWillDisplay', (event) => {
-      console.log('Notification received in foreground:', event);
-    });
-
-  } catch (error) {
-    console.error('Failed to initialize OneSignal:', error);
+  // If initialization is in progress, wait for it
+  if (initPromise) {
+    console.log('OneSignal initialization in progress, waiting...');
+    return initPromise;
   }
+
+  // Start new initialization
+  initPromise = (async () => {
+    try {
+      // Check if we're in browser environment
+      if (typeof window === 'undefined') {
+        console.log('OneSignal: Not in browser environment');
+        return;
+      }
+
+      // Check if OneSignal credentials are configured
+      if (ONESIGNAL_APP_ID === 'YOUR_ONESIGNAL_APP_ID') {
+        console.warn('OneSignal: App ID not configured. Please set NEXT_PUBLIC_ONESIGNAL_APP_ID in .env.local');
+        return;
+      }
+
+      console.log('Initializing OneSignal...');
+      
+      await OneSignalReact.init({
+        appId: ONESIGNAL_APP_ID,
+        allowLocalhostAsSecureOrigin: true, // For local development
+        serviceWorkerParam: { scope: '/' },
+        serviceWorkerPath: 'OneSignalSDKWorker.js',
+      });
+
+      isInitialized = true;
+      console.log('✅ OneSignal initialized successfully');
+
+      // Set up event listeners
+      OneSignalReact.Notifications.addEventListener('click', (event) => {
+        console.log('Notification clicked:', event);
+      });
+
+      OneSignalReact.Notifications.addEventListener('foregroundWillDisplay', (event) => {
+        console.log('Notification received in foreground:', event);
+      });
+
+    } catch (error) {
+      console.error('Failed to initialize OneSignal:', error);
+      isInitialized = false;
+      initPromise = null;
+      throw error;
+    }
+  })();
+
+  return initPromise;
 }
 
 /**

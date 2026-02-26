@@ -211,7 +211,28 @@ export const customSignOut = async (): Promise<{ error: Error | null }> => {
 export const getCustomSession = (): CustomSession | null => {
   if (typeof window === 'undefined') return null;
   
-  const sessionStr = localStorage.getItem('custom_session');
+  // First try localStorage
+  let sessionStr = localStorage.getItem('custom_session');
+  
+  // If not in localStorage, try cookie
+  if (!sessionStr) {
+    const cookieMatch = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('custom_session='));
+    
+    if (cookieMatch) {
+      try {
+        sessionStr = decodeURIComponent(cookieMatch.split('=')[1]);
+        // Also save to localStorage for consistency
+        localStorage.setItem('custom_session', sessionStr);
+        console.log('✅ Session loaded from cookie and saved to localStorage');
+      } catch (error) {
+        console.error('Failed to parse session cookie:', error);
+        return null;
+      }
+    }
+  }
+  
   if (!sessionStr) return null;
 
   try {
@@ -220,11 +241,13 @@ export const getCustomSession = (): CustomSession | null => {
     // Check if session is expired
     if (new Date(session.expires_at) < new Date()) {
       localStorage.removeItem('custom_session');
+      document.cookie = 'custom_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       return null;
     }
 
     return session;
-  } catch {
+  } catch (error) {
+    console.error('Failed to parse session:', error);
     return null;
   }
 };
