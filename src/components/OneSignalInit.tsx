@@ -11,6 +11,7 @@ import toast from 'react-hot-toast'
 export default function OneSignalInit() {
   const [isInitialized, setIsInitialized] = useState(false)
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>('default')
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     const initialize = async () => {
@@ -113,8 +114,16 @@ export default function OneSignalInit() {
           }
         } else if (permission === 'granted' && !userId) {
           console.log('🔵 [OneSignalInit] Permission granted but no user ID yet')
-          // Wait a bit more and try again
-          setTimeout(() => initialize(), 2000)
+          
+          // Prevent infinite loop - only retry 3 times
+          if (retryCount < 3) {
+            console.log(`🔵 [OneSignalInit] Retry attempt ${retryCount + 1}/3 in 2 seconds...`)
+            setRetryCount(retryCount + 1)
+            setTimeout(() => initialize(), 2000)
+          } else {
+            console.log('⚠️ [OneSignalInit] Max retries reached. User needs to log in.')
+            console.log('⚠️ [OneSignalInit] Please sign up or log in to enable notifications.')
+          }
         } else if (permission === 'granted' && userId) {
           console.log('🔵 [OneSignalInit] Permission already granted, checking subscription...')
           // User already granted permission, ensure they're subscribed and linked
