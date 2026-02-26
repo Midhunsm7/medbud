@@ -56,6 +56,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Try to get OneSignal Player ID from user's session/database
+    // This is a fallback if external user ID linking hasn't happened yet
+    let notificationPayload: any = {
+      app_id: ONESIGNAL_APP_ID,
+      headings: { en: title },
+      contents: { en: message },
+      send_after: new Date(sendAfter).toISOString(),
+      data: {
+        reminderId: reminderId || null,
+        type: 'medication_reminder',
+        ...reminderData,
+      },
+      // iOS specific settings
+      ios_badgeType: 'Increase',
+      ios_badgeCount: 1,
+      ios_sound: 'default',
+      // Android specific settings
+      priority: 10,
+      // Additional settings
+      ttl: 86400, // 24 hours
+      content_available: true,
+    };
+
+    // Try external user ID first (preferred method)
+    notificationPayload.include_external_user_ids = [userId.toString()];
+    
+    // FALLBACK: If you have player IDs stored in database, you could use:
+    // notificationPayload.include_player_ids = [playerIdFromDatabase];
+    
+    // Or send to ALL subscribed users (not recommended for production):
+    // notificationPayload.included_segments = ['Subscribed Users'];
+
+    console.log('Attempting to send notification with payload:', {
+      userId: userId.toString(),
+      title,
+      sendAfter: new Date(sendAfter).toISOString(),
+    });
+
     // Schedule notification via OneSignal API
     const response = await fetch('https://onesignal.com/api/v1/notifications', {
       method: 'POST',
@@ -63,27 +101,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'Authorization': `Basic ${ONESIGNAL_REST_API_KEY}`,
       },
-      body: JSON.stringify({
-        app_id: ONESIGNAL_APP_ID,
-        include_external_user_ids: [userId.toString()],
-        headings: { en: title },
-        contents: { en: message },
-        send_after: new Date(sendAfter).toISOString(),
-        data: {
-          reminderId: reminderId || null,
-          type: 'medication_reminder',
-          ...reminderData,
-        },
-        // iOS specific settings
-        ios_badgeType: 'Increase',
-        ios_badgeCount: 1,
-        ios_sound: 'default',
-        // Android specific settings
-        priority: 10,
-        // Additional settings
-        ttl: 86400, // 24 hours
-        content_available: true,
-      }),
+      body: JSON.stringify(notificationPayload),
     });
 
     const result = await response.json();
