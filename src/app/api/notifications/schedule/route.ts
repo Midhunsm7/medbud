@@ -59,6 +59,10 @@ export async function POST(request: NextRequest) {
     // User is now properly subscribed and linked!
     // Use external user ID for targeted notifications
     
+    // Get the base URL for the sound file
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://medbud-two.vercel.app';
+    const soundUrl = `${baseUrl}/sound.wav`;
+    
     let notificationPayload: any = {
       app_id: ONESIGNAL_APP_ID,
       include_external_user_ids: [userId.toString()],
@@ -68,13 +72,16 @@ export async function POST(request: NextRequest) {
       data: {
         reminderId: reminderId || null,
         type: 'medication_reminder',
+        soundUrl: soundUrl, // Pass sound URL to service worker
         ...reminderData,
       },
       // iOS specific settings
       ios_badgeType: 'Increase',
       ios_badgeCount: 1,
-      ios_sound: 'default',
+      ios_sound: soundUrl, // Custom sound for iOS
       // Android specific settings
+      android_sound: soundUrl, // Custom sound for Android
+      android_channel_id: 'medication_reminders', // Custom channel for Android
       priority: 10,
       // Additional settings
       ttl: 86400, // 24 hours

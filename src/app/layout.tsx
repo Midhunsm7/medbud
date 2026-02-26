@@ -70,6 +70,38 @@ export default function RootLayout({
             }
           `}
         </Script>
+        
+        {/* Custom Sound Player */}
+        <Script id="sound-player" strategy="afterInteractive">
+          {`
+            // Listen for messages from service worker to play custom sound
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'PLAY_SOUND') {
+                  console.log('Playing custom notification sound:', event.data.soundUrl);
+                  
+                  try {
+                    const audio = new Audio(event.data.soundUrl);
+                    audio.volume = 1.0; // Max volume
+                    audio.loop = false;
+                    
+                    // Play the sound
+                    audio.play().then(() => {
+                      console.log('Custom sound played successfully');
+                    }).catch(err => {
+                      console.error('Error playing custom sound:', err);
+                      // Fallback: try to play default notification sound
+                      const fallbackAudio = new Audio('/sound.wav');
+                      fallbackAudio.play().catch(e => console.error('Fallback sound also failed:', e));
+                    });
+                  } catch (error) {
+                    console.error('Error creating audio element:', error);
+                  }
+                }
+              });
+            }
+          `}
+        </Script>
         <Toaster
           position="top-right"
           toastOptions={{
