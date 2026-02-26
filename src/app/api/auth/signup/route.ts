@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { supabase } from '@/lib/supabase/supabase'
+import { cookies } from 'next/headers'
+
+// Generate a simple session token
+const generateToken = () => {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
 
 export async function POST(req: Request) {
   try {
@@ -73,6 +79,61 @@ export async function POST(req: Request) {
       )
     }
 
+    // AUTO-LOGIN: Create session immediately after signup
+    const token = generateToken()
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 7) // 7 days
+
+    const { error: sessionError } = await supabase
+      .from('custom_sessions')
+      .insert({
+        user_id: user.id,
+        token,
+        expires_at: expiresAt.toISOString()
+      })
+
+    if (sessionError) {
+      console.error('Session creation error:', sessionError)
+      // Still return success for user creation, but without auto-login
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          full_name: user.full_name,
+          phone: user.phone,
+          created_at: user.created_at
+        },
+        autoLoginFailed: true
+      })
+    }
+
+    // Create session object
+    const session = {
+      user_id: user.id,
+      user: {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        phone: user.phone,
+        created_at: user.created_at
+      },
+      token,
+      expires_at: expiresAt.toISOString()
+    }
+
+    // Set cookie for auto-login
+    const cookieStore = await cookies()
+    const isProduction = process.env.NODE_ENV === 'production'
+    
+    cookieStore.set('custom_session', JSON.stringify(session), {
+      httpOnly: false, // Allow client-side access for OneSignal
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: '/',
+    })
+
     return NextResponse.json({
       success: true,
       user: {
@@ -81,7 +142,9 @@ export async function POST(req: Request) {
         full_name: user.full_name,
         phone: user.phone,
         created_at: user.created_at
-      }
+      },
+      session,
+      autoLogin: true
     })
 
   } catch (err) {

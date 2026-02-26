@@ -34,7 +34,7 @@ export default function OneSignalInit() {
             if (session.user_id) {
               // Link OneSignal to user ID
               await setExternalUserId(session.user_id.toString())
-              console.log('OneSignal linked to user:', session.user_id)
+              console.log('✅ OneSignal linked to user:', session.user_id)
             }
           } catch (error) {
             console.error('Failed to parse session:', error)
@@ -45,11 +45,24 @@ export default function OneSignalInit() {
         const permission = getNotificationPermission()
         setPermissionStatus(permission)
 
-        // If permission is default (not asked yet), show a prompt after a delay
+        // Check if this is a new user (from signup redirect)
+        const urlParams = new URLSearchParams(window.location.search)
+        const isNewUser = urlParams.has('newUser')
+
+        // If permission is default (not asked yet), show a prompt
         if (permission === 'default') {
+          // Show immediately for new users, otherwise wait 3 seconds
+          const delay = isNewUser ? 500 : 3000
           setTimeout(() => {
             showPermissionPrompt()
-          }, 3000) // Wait 3 seconds before asking
+          }, delay)
+        } else if (permission === 'granted' && isNewUser) {
+          // If already granted (shouldn't happen for new users), verify subscription
+          const playerId = await getOneSignalPlayerId()
+          if (playerId) {
+            console.log('✅ New user already subscribed:', playerId)
+            toast.success('Notifications enabled! You\'ll receive medication reminders.')
+          }
         }
       } catch (error) {
         console.error('Failed to initialize OneSignal:', error)

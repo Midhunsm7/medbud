@@ -102,10 +102,17 @@ export default function SignupPage() {
         throw new Error(data.error || 'Registration failed');
       }
 
-      toast.success('Account created successfully!');
-      
-      // Redirect to login
-      router.push('/login?registered=true');
+      // Check if auto-login was successful
+      if (data.autoLogin && data.session) {
+        toast.success('Account created! Setting up notifications...');
+        
+        // Redirect to reminders page where OneSignal will initialize
+        router.push('/reminders?newUser=true');
+      } else {
+        // Fallback: redirect to login if auto-login failed
+        toast.success('Account created successfully!');
+        router.push('/login?registered=true');
+      }
 
     } catch (error: any) {
       console.error('Signup error:', error);
