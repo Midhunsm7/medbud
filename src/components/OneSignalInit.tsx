@@ -30,6 +30,10 @@ export default function OneSignalInit() {
         setIsInitialized(true)
         console.log('✅ [OneSignalInit] OneSignal initialized, component state updated')
 
+        // WAIT for session to be available (timing fix)
+        console.log('🔵 [OneSignalInit] Waiting for session to load...')
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
         // Check current permission status
         const permission = getNotificationPermission()
         console.log('🔵 [OneSignalInit] Current permission status:', permission)
@@ -41,28 +45,47 @@ export default function OneSignalInit() {
         const autoSubscribe = urlParams.has('autoSubscribe')
         console.log('🔵 [OneSignalInit] URL params:', { isNewUser, autoSubscribe })
 
-        // Get current user from session cookie
+        // Get current user from session cookie OR localStorage
+        let userId: string | null = null
+        
+        // Try cookie first
         const sessionCookie = document.cookie
           .split('; ')
           .find(row => row.startsWith('custom_session='))
         
-        let userId: string | null = null
         if (sessionCookie) {
           try {
             const sessionValue = sessionCookie.split('=')[1]
             const session = JSON.parse(decodeURIComponent(sessionValue))
             userId = session.user_id?.toString()
-            console.log('🔵 [OneSignalInit] User ID from session:', userId)
+            console.log('🔵 [OneSignalInit] User ID from cookie:', userId)
           } catch (error) {
-            console.error('❌ [OneSignalInit] Failed to parse session:', error)
+            console.error('❌ [OneSignalInit] Failed to parse session cookie:', error)
           }
-        } else {
-          console.log('⚠️ [OneSignalInit] No session cookie found')
+        }
+        
+        // Try localStorage if cookie failed
+        if (!userId) {
+          try {
+            const sessionStr = localStorage.getItem('custom_session')
+            if (sessionStr) {
+              const session = JSON.parse(sessionStr)
+              userId = session.user?.id?.toString() || session.user_id?.toString()
+              console.log('🔵 [OneSignalInit] User ID from localStorage:', userId)
+            }
+          } catch (error) {
+            console.error('❌ [OneSignalInit] Failed to parse localStorage session:', error)
+          }
+        }
+        
+        if (!userId) {
+          console.log('⚠️ [OneSignalInit] No user ID found in cookie or localStorage')
         }
 
-        // Auto-subscribe for new users or when explicitly requested
-        if ((isNewUser || autoSubscribe) && userId) {
-          console.log('🔔 [OneSignalInit] AUTO-SUBSCRIBE TRIGGERED for user:', userId)
+        // ALWAYS try to subscribe if we have a user ID
+        // This ensures everyone gets subscribed regardless of URL params
+        if (userId) {
+          console.log('🔔 [OneSignalInit] User ID found, ensuring subscription for:', userId)
           
           // Ensure user is subscribed first
           console.log('🔵 [OneSignalInit] Calling ensureSubscribed()...')
@@ -75,16 +98,23 @@ export default function OneSignalInit() {
               console.log('🔵 [OneSignalInit] Linking external user ID...')
               await setExternalUserId(userId)
               console.log('✅ [OneSignalInit] User subscribed and linked:', userId, playerId)
-              toast.success('Notifications enabled! You\'ll receive medication reminders.')
+              
+              if (isNewUser || autoSubscribe) {
+                toast.success('Notifications enabled! You\'ll receive medication reminders.')
+              }
             } catch (error) {
               console.error('❌ [OneSignalInit] Failed to link user ID:', error)
               toast.error('Subscription successful but linking failed. Please refresh.')
             }
           } else {
-            console.warn('⚠️ [OneSignalInit] Auto-subscription failed, showing manual prompt')
+            console.warn('⚠️ [OneSignalInit] Subscription failed, showing manual prompt')
             // Show manual prompt
             setTimeout(() => showPermissionPrompt(), 1000)
           }
+        } else if (permission === 'granted' && !userId) {
+          console.log('🔵 [OneSignalInit] Permission granted but no user ID yet')
+          // Wait a bit more and try again
+          setTimeout(() => initialize(), 2000)
         } else if (permission === 'granted' && userId) {
           console.log('🔵 [OneSignalInit] Permission already granted, checking subscription...')
           // User already granted permission, ensure they're subscribed and linked
