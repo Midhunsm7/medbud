@@ -52,8 +52,11 @@ export async function initOneSignal(): Promise<void> {
       await OneSignalReact.init({
         appId: ONESIGNAL_APP_ID,
         allowLocalhostAsSecureOrigin: true, // For local development
-        serviceWorkerParam: { scope: '/' },
-        serviceWorkerPath: 'OneSignalSDKWorker.js',
+        serviceWorkerParam: {
+          scope: '/',
+        },
+        // Let OneSignal use its default service worker paths
+        // It will look for OneSignalSDKWorker.js and OneSignalSDK.sw.js
       });
 
       isInitialized = true;
