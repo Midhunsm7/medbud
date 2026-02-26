@@ -56,19 +56,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // WORKAROUND: OneSignal SDK CDN is blocked, so we can't link individual users
-    // Solution: Send to ALL subscribed users using segments
-    // This is not ideal but works until CDN access is fixed
+    // User is now properly subscribed and linked!
+    // Use external user ID for targeted notifications
     
     let notificationPayload: any = {
       app_id: ONESIGNAL_APP_ID,
+      include_external_user_ids: [userId.toString()],
       headings: { en: title },
       contents: { en: message },
       send_after: new Date(sendAfter).toISOString(),
       data: {
         reminderId: reminderId || null,
         type: 'medication_reminder',
-        userId: userId.toString(), // Include user ID in data for filtering
         ...reminderData,
       },
       // iOS specific settings
@@ -82,18 +81,11 @@ export async function POST(request: NextRequest) {
       content_available: true,
     };
 
-    // TEMPORARY FIX: Send to all subscribed users
-    // This works even when individual user linking fails
-    notificationPayload.included_segments = ['Subscribed Users'];
-    
-    // NOTE: Once OneSignal SDK CDN access is fixed, switch back to:
-    // notificationPayload.include_external_user_ids = [userId.toString()];
-
-    console.log('🔵 [schedule] Sending notification to ALL subscribed users (CDN workaround):', {
+    console.log('🔵 [schedule] Sending notification to user:', {
       userId: userId.toString(),
       title,
       sendAfter: new Date(sendAfter).toISOString(),
-      method: 'segments (all users)',
+      method: 'external_user_id',
     });
 
     // Schedule notification via OneSignal API
